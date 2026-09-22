@@ -121,4 +121,8 @@ stages:
         appType: "webAppLinux"
         appName: "$(appName)"
         package: "$(Pipeline.Workspace)/$(artifactName)/$(artifactName).zip"
+<<<<<<< HEAD
         startUpCommand: "gunicorn --bind=0.0.0.0:8000 app:app"
+=======
+        startUpCommand: "gunicorn --bind=0.0.0.0:8000 app:app"
+>>>>>>> 024b985207ce718cc02bb75d91519438bc36286a
