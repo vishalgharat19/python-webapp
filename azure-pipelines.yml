@@ -53,15 +53,17 @@ stages:
     # Upgrade pip and install dependencies
     - script: |
         python -m pip install --upgrade pip
-
-        if [ -f requirements.txt ]; then
-          python -m pip install -r requirements.txt
-        fi
+        python -m pip install -r requirements.txt
       displayName: "Install Dependencies"
+
+    # Verify pytest
+    - script: |
+        python -m pytest --version
+      displayName: "Verify Pytest"
 
     # Run tests
     - script: |
-        python -m pytest
+        python -m pytest -v
       displayName: "Run Unit Tests"
 
     # Create deployment ZIP
@@ -121,8 +123,4 @@ stages:
         appType: "webAppLinux"
         appName: "$(appName)"
         package: "$(Pipeline.Workspace)/$(artifactName)/$(artifactName).zip"
-<<<<<<< HEAD
         startUpCommand: "gunicorn --bind=0.0.0.0:8000 app:app"
-=======
-        startUpCommand: "gunicorn --bind=0.0.0.0:8000 app:app"
->>>>>>> 024b985207ce718cc02bb75d91519438bc36286a
