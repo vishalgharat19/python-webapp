@@ -1,108 +1,124 @@
 trigger:
   - main
 
-schedules:
-  - cron: "* * * * *"
-    displayName: "Every Minute Build"
-    branches:
-      include:
-        - main
-    always: true
-
 pool:
   vmImage: "ubuntu-latest"
 
 variables:
   azureServiceConnection: "AzureWebAppServiceConnection"
-  appName: "myapp98600"
+  appName: "webapp123"
   pythonVersion: "3.12"
   artifactName: "python-app"
 
 stages:
-  # =========================================================
-  # STAGE 1: BUILD
-  # =========================================================
 
-  - stage: Build
-    displayName: "Build Python Application"
+# =========================================================
+# STAGE 1: BUILD
+# =========================================================
 
-    jobs:
-      - job: BuildJob
-        displayName: "Build Job"
+- stage: Build
+  displayName: "Build Python Application"
 
-        steps:
-          # Checkout source code
-          - checkout: self
+  jobs:
+  - job: BuildJob
+    displayName: "Build Job"
 
-          # Check server time
-          - script: |
-              echo "Current Server Time:"
-              date
+    steps:
 
-              echo "Current UTC Time:"
-              date -u
-            displayName: "Check Server Time"
+    # Checkout source code
+    - checkout: self
 
-          # Install Python
-          - task: UsePythonVersion@0
-            displayName: "Install Python"
-            inputs:
-              versionSpec: "$(pythonVersion)"
-              addToPath: true
+    # Check server time
+    - script: |
+        echo "Current Server Time:"
+        date
 
-          # Install dependencies
-          - script: |
-              python -m pip install --upgrade pip
+        echo "Current UTC Time:"
+        date -u
+      displayName: "Check Server Time"
 
-              if [ -f requirements.txt ]; then
-                pip install -r requirements.txt
-              fi
-            displayName: "Install Dependencies"
+    # Install Python
+    - task: UsePythonVersion@0
+      displayName: "Install Python"
+      inputs:
+        versionSpec: "$(pythonVersion)"
+        addToPath: true
 
-          # Create ZIP package
-          - task: ArchiveFiles@2
-            displayName: "Create Deployment ZIP"
-            inputs:
-              rootFolderOrFile: "$(System.DefaultWorkingDirectory)"
-              includeRootFolder: false
-              archiveType: "zip"
-              archiveFile: "$(Build.ArtifactStagingDirectory)/$(artifactName).zip"
-              replaceExistingArchive: true
+    # Verify Python
+    - script: |
+        python --version
+        python -m pip --version
+      displayName: "Verify Python"
 
-          # Publish artifact
-          - task: PublishPipelineArtifact@1
-            displayName: "Publish Application Artifact"
-            inputs:
-              targetPath: "$(Build.ArtifactStagingDirectory)/$(artifactName).zip"
-              artifact: "$(artifactName)"
-              publishLocation: "pipeline"
+    # Upgrade pip and install dependencies
+    - script: |
+        python -m pip install --upgrade pip
 
-  # =========================================================
-  # STAGE 2: DEPLOY
-  # =========================================================
+        if [ -f requirements.txt ]; then
+          python -m pip install -r requirements.txt
+        fi
+      displayName: "Install Dependencies"
 
-  - stage: Deploy
-    displayName: "Deploy to Azure Web App"
-    dependsOn: Build
-    condition: succeeded()
+    # Run tests
+    - script: |
+        python -m pytest
+      displayName: "Run Unit Tests"
 
-    jobs:
-      - job: DeployWebApp
-        displayName: "Deploy Web App"
+    # Create deployment ZIP
+    - task: ArchiveFiles@2
+      displayName: "Create Deployment ZIP"
+      inputs:
+        rootFolderOrFile: "$(System.DefaultWorkingDirectory)"
+        includeRootFolder: false
+        archiveType: "zip"
+        archiveFile: "$(Build.ArtifactStagingDirectory)/$(artifactName).zip"
+        replaceExistingArchive: true
+        verbose: true
 
-        steps:
-          # Download artifact
-          - task: DownloadPipelineArtifact@2
-            displayName: "Download Application Artifact"
-            inputs:
-              artifact: "$(artifactName)"
-              path: "$(Pipeline.Workspace)/$(artifactName)"
+    # Publish artifact
+    - task: PublishPipelineArtifact@1
+      displayName: "Publish Application Artifact"
+      inputs:
+        targetPath: "$(Build.ArtifactStagingDirectory)/$(artifactName).zip"
+        artifact: "$(artifactName)"
+        publishLocation: "pipeline"
 
-          # Deploy to Azure Web App
-          - task: AzureWebApp@1
-            displayName: "Deploy Python App"
-            inputs:
-              azureSubscription: "$(azureServiceConnection)"
-              appType: "webAppLinux"
-              appName: "$(appName)"
-              package: "$(Pipeline.Workspace)/$(artifactName)/$(artifactName).zip"
+
+# =========================================================
+# STAGE 2: DEPLOY
+# =========================================================
+
+- stage: Deploy
+  displayName: "Deploy to Azure Web App"
+
+  dependsOn: Build
+  condition: succeeded()
+
+  jobs:
+  - job: DeployWebApp
+    displayName: "Deploy Web App"
+
+    steps:
+
+    # Download artifact
+    - task: DownloadPipelineArtifact@2
+      displayName: "Download Application Artifact"
+      inputs:
+        artifact: "$(artifactName)"
+        path: "$(Pipeline.Workspace)/$(artifactName)"
+
+    # Verify downloaded artifact
+    - script: |
+        echo "Downloaded files:"
+        ls -lah "$(Pipeline.Workspace)/$(artifactName)"
+      displayName: "Verify Artifact"
+
+    # Deploy to Azure App Service
+    - task: AzureWebApp@1
+      displayName: "Deploy Python App"
+      inputs:
+        azureSubscription: "$(azureServiceConnection)"
+        appType: "webAppLinux"
+        appName: "$(appName)"
+        package: "$(Pipeline.Workspace)/$(artifactName)/$(artifactName).zip"
+        startUpCommand: "gunicorn --bind=0.0.0.0:8000 app:app"
