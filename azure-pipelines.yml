@@ -28,15 +28,6 @@ stages:
     # Checkout source code
     - checkout: self
 
-    # Check server time
-    - script: |
-        echo "Current Server Time:"
-        date
-
-        echo "Current UTC Time:"
-        date -u
-      displayName: "Check Server Time"
-
     # Install Python
     - task: UsePythonVersion@0
       displayName: "Install Python"
@@ -70,7 +61,6 @@ stages:
         archiveType: "zip"
         archiveFile: "$(Build.ArtifactStagingDirectory)/$(artifactName).zip"
         replaceExistingArchive: true
-        verbose: true
 
     # Publish artifact
     - task: PublishPipelineArtifact@1
@@ -86,7 +76,7 @@ stages:
 # =========================================================
 
 - stage: Deploy
-  displayName: "Deploy to Azure Web App"
+  displayName: "Deploy to Azure App Service"
 
   dependsOn: Build
   condition: succeeded()
@@ -106,7 +96,7 @@ stages:
 
     # Verify artifact
     - script: |
-        echo "Downloaded files:"
+        echo "Downloaded artifact:"
         ls -lah "$(Pipeline.Workspace)/$(artifactName)"
       displayName: "Verify Artifact"
 
