@@ -19,6 +19,6 @@ spec:
     spec:
       containers:
         - name: pythonwebapp
-          image: docker.io/atuljkamble/pythonwebapp
+          image: docker.io/vishalgharat19/pythonwebapp
           ports:
             - containerPort: 8080
